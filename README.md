@@ -44,7 +44,7 @@ Ensure you have Python 3.8+ installed on your machine.
 
 1. Start the application:
 
-    python app.py
+    streamlit run app.py
 
 2. Open your local web browser and navigate to the provided localhost URL.
 
