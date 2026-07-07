@@ -1,0 +1,37 @@
+{
+  "type": "object",
+  "properties": {
+    "buyback_size_crores": {
+      "type": "number",
+      "description": "Total size of the buyback in Crores."
+    },
+    "buyback_price": {
+      "type": "number",
+      "description": "Price per share offered in the buyback."
+    },
+    "acceptance_rate_percentage": {
+      "type": "number",
+      "description": "Estimated or actual acceptance rate percentage."
+    },
+    "small_shareholder_percentage": {
+      "type": "number",
+      "description": "Percentage reserved for small shareholders (usually 15%)."
+    },
+    "record_date": {
+      "type": "string",
+      "format": "date",
+      "description": "The record date for the buyback."
+    },
+    "offer_type": {
+      "type": "string",
+      "enum": ["Tender", "Open Market"],
+      "description": "Type of the buyback offer."
+    }
+  },
+  "required": [
+    "buyback_size_crores",
+    "buyback_price",
+    "record_date",
+    "offer_type"
+  ]
+}
