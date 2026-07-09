@@ -125,7 +125,6 @@ if st.session_state.extracted_data:
             
         size_val = extracted_data.get('buyback_size')
         
-        # We assume 100% participation since the user removed the assumption slider
         participation_assumption = 100.0
         acceptance_ratio = extractor.calculate_acceptance_ratio(size_val, buyback_price, holding_pct, participation_assumption)
         
