@@ -38,7 +38,7 @@ def check_for_new_filings():
     
     discovered_urls = []
     
-    # Strategy A: Attempt to scrape standard HTML feed
+    # Attempt to scrape standard HTML feed
     target_url = "https://www.bseindia.com/corporates/ann.html" 
     
     now = datetime.datetime.now()
@@ -57,9 +57,9 @@ def check_for_new_filings():
             for row in rows:
                 text = row.get_text().lower()
                 
-                # 1. Look for buyback keyword
+                # Look for buyback keyword
                 if 'buyback' in text:
-                    # 2. Look for a date in the row text
+                    # Look for a date in the row text
                     date_match = re.search(r'(\d{1,2})[\-/\s]+([a-zA-Z]{3,9}|\d{1,2})[\-/\s]+(\d{4})', row.get_text())
                     is_recent = True  
                     
@@ -70,7 +70,7 @@ def check_for_new_filings():
                             if parsed_date < ten_days_ago or parsed_date > (now + datetime.timedelta(days=1)):
                                 is_recent = False
                                 
-                    # 3. Capture PDF links
+                    # Capture PDF links
                     if is_recent:
                         links = row.find_all('a', href=True)
                         for link in links:
@@ -96,11 +96,8 @@ def check_for_new_filings():
     except Exception as e:
         print(f"Strategy A: Unexpected parsing error -> {e}")
         
-    # Strategy B: Fallback multi-source system
+    # Fallback multi-source system
     print("Strategy B: Executing multi-source fallback (Simulated Local Feed / Sandbox).")
-    
-    # We provide simulated URLs to ensure the agent pipeline keeps running during weekends/holidays
-    # or when the primary site dynamically blocks python-based User-Agents.
     simulated_urls = [
         ("https://www.bseindia.com/xml-data/corpfiling/AttachLive/140f878a-c0bb-4369-a1d8-3ce64cc12f9b.pdf", "HCL Tech (Fallback)"),
         ("https://www.bseindia.com/xml-data/corpfiling/AttachLive/4f2ea068-15f5-4dc9-9836-eeb7a5ea79c6.pdf", "Wipro (Fallback)")
@@ -118,7 +115,7 @@ def download_pdf(url):
     if not os.path.exists(TEMP_PDF_DIR):
         os.makedirs(TEMP_PDF_DIR)
         
-    # Generate a safe filename
+    # Generate a filename
     filename = url.split('/')[-1]
     if not filename.lower().endswith('.pdf'):
         filename += '.pdf'
@@ -178,14 +175,13 @@ def run_bot():
             # Pass the downloaded PDF directly to the extractor
             data, raw_text = extractor.extract_from_pdf(local_pdf_path)
             
-            # Clean up the downloaded PDF after extraction to save space
+            # Clean up the downloaded PDF after extraction
             if os.path.exists(local_pdf_path):
                 os.remove(local_pdf_path)
                 
             size = data.get("buyback_size", 0)
             price = data.get("buyback_price", 0)
             
-            # Default assumptions for the bot
             holding_pct = 2.0
             participation = 50.0
             
@@ -230,7 +226,7 @@ def main():
         except Exception as e:
             print(f"Error during bot execution: {e}")
             
-        # Sleep for 10 seconds for testing (previously 86400 for 24 hours)
+        # Sleep for 10 seconds for testing
         print("Sleeping for 10 seconds...")
         time.sleep(10)
 
