@@ -12,14 +12,12 @@ class BuybackAgentExtractor:
     def calculate_acceptance_ratio(self, buyback_size, buyback_price, small_shareholder_holding, participation):
         """Calculates the estimated retail acceptance ratio based on SEBI 15% reservation."""
         try:
-            # Clean string inputs from the regex just in case (e.g., "10,80,00,000" -> 108000000.0)
+            # Clean string inputs from the regex
             if isinstance(buyback_size, str):
                 buyback_size = float(buyback_size.replace(',', '').replace('/-', '').replace('₹', '').strip())
             if isinstance(buyback_price, str):
                 buyback_price = float(buyback_price.replace(',', '').replace('/-', '').replace('₹', '').strip())
             
-            # Note: A true final ratio requires total outstanding shares. 
-            # For this prototype, we will build a dynamic formula that reacts realistically to your sliders.
             # 15% SEBI Reservation base / (Retail Holding % * Participation %)
             base_reservation = 15.0 
             
@@ -32,11 +30,10 @@ class BuybackAgentExtractor:
             return min(round(calculated_ratio, 2), 100.0)
             
         except Exception as e:
-            return 0.0  # Fallback if data is missing or N/A
+            return 0.0  # Fallback if data is missing
 
     def calculate_profitability(self, current_price, expected_post_price, buyback_price, acceptance_ratio):
         try:
-            # If user didn't enter a post price, default to current market price to show conservative baseline
             post_price = float(expected_post_price) if expected_post_price else float(current_price)
             
             avg_realized = (float(buyback_price) * (float(acceptance_ratio) / 100.0)) + (post_price * (1.0 - (float(acceptance_ratio) / 100.0)))
@@ -73,7 +70,6 @@ class BuybackAgentExtractor:
         except Exception as e:
             print(f"Error fetching URL: {e}")
     def _parse_and_extract(self, raw_text: str):
-        # Keyword-to-value mapping strategy
         clean_text = re.sub(r'\s+', ' ', raw_text)
         
         buyback_price = None
@@ -100,7 +96,7 @@ class BuybackAgentExtractor:
         else:
             print("Keyword 'Price' not found in document.")
 
-        # Check for Amended/Revised Buyback Price (Overrides base price)
+        # Check for Amended/Revised Buyback Price
         amended_price_pattern = re.compile(r'(?:increased\s+from.*?to|revised\s+to|revised\s+buyback\s+price\s+of)\s*(?:rs\.?|inr|\u20b9|rupees)?\s*([\d,]+(?:\.\d+)?)', re.IGNORECASE)
         amended_match = amended_price_pattern.search(clean_text)
         if amended_match:
@@ -116,7 +112,7 @@ class BuybackAgentExtractor:
         else:
             print("Keyword 'Record Date' not found in document.")
             
-        # Keyword: Offer Type (Scoring System)
+        # Keyword: Offer Type
         tender_indicators = ["tender offer", "proportionate basis", "through the tender offer", "buyback regulations"]
         tender_score = sum(1 for indicator in tender_indicators if re.search(indicator, clean_text[:15000], re.IGNORECASE))
         
@@ -128,7 +124,7 @@ class BuybackAgentExtractor:
             offer_type = "Unknown"
             print("Method detection failed. Checking Page 1-3 content for tender offer terminology.")
             
-        # Buyback Size (just keeping the existing regex as fallback)
+        # Buyback Size
         size_pattern = re.compile(r'(?:aggregate\s*amount\s*(?:of\s*the\s*buyback\s*)?(?:shall|will|does)?\s*not\s*exceed(?:ing)?|aggregate\s*amount\s*of\s*up\s*to|maximum\s*buyback\s*size\s*(?:of)?|total\s*outlay\s*of|size\s*of\s*(?:the\s*)?buyback\s*(?:is\s*)?)\s*(?:Rs\.?|INR|\u20b9|Rupees)?\s*([\d,]+(?:\.\d+)?)(?:/-)?\s*(Crores?|Cr\.?|Lakhs?|Millions?)?', re.IGNORECASE)
         for match in size_pattern.finditer(clean_text):
             val_str = match.group(1).strip()
@@ -165,16 +161,14 @@ class BuybackAgentExtractor:
         if not raw_text:
             return {"error": "Could not extract text from PDF"}, ""
         
-        # Capture whatever the parsing function returns
+        # Record whatever the parsing function returns
         result = self._parse_and_extract(raw_text)
         
-        # Defensive check: unwrap the dictionary safely
+        # Unwrap the dictionary
         if isinstance(result, tuple):
-            # If the AI put the dictionary in the first slot, just grab it!
             if len(result) > 0 and isinstance(result[0], dict):
                 structured_data = result[0]
             else:
-                # Otherwise, build it manually
                 structured_data = {
                     "buyback_size": result[0] if len(result) > 0 else None,
                     "buyback_price": result[1] if len(result) > 1 else None,
@@ -200,10 +194,10 @@ class BuybackAgentExtractor:
             print("PDF is empty / unreadable. Triggering online fallback.")
             return self.fetch_shareholding_online(company_name), ""
             
-        # 1. Strict Document Validation (Fail Fast)
+        # Document Validation
         text_lower = raw_text.lower()
         
-        # Rule 3: Fail immediately if it's an announcement instead of an SHP
+        # Fail immediately if it's an announcement instead of an SHP
         if "public announcement" in text_lower[:2000] or "letter of offer" in text_lower[:2000]:
             if "category of shareholder" not in text_lower:
                 print("VALIDATION FAILED: This is an Announcement/Notice, NOT an SHP document.")
@@ -218,14 +212,12 @@ class BuybackAgentExtractor:
         print(f"CMP = Rs. {cmp_price}")
         print(f"{'='*60}")
         
-        # =======================================================
-        # STRICT EXTRACTION: Direct "Category of Shareholders" table
-        # =======================================================
+        # EXTRACTION: Direct "Category of Shareholders" table
         print("\nSearching for 'Individuals up to Rs.2 lakhs' row in Category table...")
         
         extracted_value = self._tier1_category_table(raw_text)
         
-        # 3. Handle the 'NOT_FOUND' Response
+        # Handle the 'NOT_FOUND' Response
         if extracted_value == 'NOT_FOUND' or extracted_value is None:
             print("LLM/Regex confirms data is missing or NOT_FOUND. Triggering online search...")
             fallback_data = self.fetch_shareholding_online(company_name)
@@ -234,9 +226,7 @@ class BuybackAgentExtractor:
         print(f"[SUCCESS] Extracted retail holding = {extracted_value}%")
         return {"retail_holding_percentage": extracted_value, "is_approximate": False, "source": "PDF (SHP Table)"}, raw_text
 
-    # -----------------------------------------------------------
     # TIER 1 HELPER: Category of Shareholders table
-    # -----------------------------------------------------------
     def _tier1_category_table(self, raw_text):
         """
         Specialized extraction for 'Small Shareholder' data (defined as 
@@ -244,7 +234,6 @@ class BuybackAgentExtractor:
         Uses a scoped regex with DOTALL to handle multi-line table rows.
         """
         # Target string: "Individuals holding nominal share capital up to Rs. 2 lakhs"
-        # We allow "1" or "2" lakhs, and "up to" or "upto".
         pattern = r"Individuals holding nominal share capital\s+up\s*to\s*(?:Rs\.?)?\s*(?:1|2)\s*lakhs?.*?(?:\d+\,?\d*\,?\d*)\s*(\d+\.\d+)"
         
         match = re.search(pattern, raw_text, re.IGNORECASE | re.DOTALL)
@@ -252,7 +241,7 @@ class BuybackAgentExtractor:
         if match:
             extracted_value = match.group(1)
             val = float(extracted_value)
-            # Ensure it is a reasonable retail percentage (not 100%)
+            # Ensure it is a reasonable retail percentage
             if 0.1 <= val <= 50.0:
                 print(f"  -> Successfully extracted Small Shareholder percentage: {val}%")
                 return val
@@ -262,9 +251,7 @@ class BuybackAgentExtractor:
         print("  -> Small Shareholder data not found in primary table using strict regex.")
         return None
 
-    # -----------------------------------------------------------
     # TIER 2 HELPER: Distribution of Shareholding table
-    # -----------------------------------------------------------
     def _tier2_distribution_table(self, raw_text, cmp_price):
         """
         Parses the 'Distribution of Shareholding' table.
@@ -279,12 +266,12 @@ class BuybackAgentExtractor:
         max_retail_shares = int(200000 / cmp_price)
         print(f"  -> Max retail shares at CMP Rs. {cmp_price} = {max_retail_shares} shares")
         
-        # Find the Distribution of Shareholding section
+        # Distribution of Shareholding section
         lines = raw_text.split('\n')
         in_distribution_section = False
         bracket_rows = []
         
-        # Pattern to match share-count brackets like "1 - 500", "501 to 1000", "5001 and above"
+        # Pattern to match share-count brackets
         bracket_pattern = re.compile(
             r'(\d[\d,]*)\s*(?:[-–to]+|and\s*above|above)\s*(\d[\d,]*)?'
         )
@@ -298,7 +285,7 @@ class BuybackAgentExtractor:
                 print(f"  -> Found 'Distribution of Shareholding' section header.")
                 continue
             
-            # Detect section end (next major header)
+            # Detect section end
             if in_distribution_section and ('category of share' in ll or 'promoter' in ll and 'holding' in ll):
                 break
                 
@@ -331,7 +318,7 @@ class BuybackAgentExtractor:
             
         print(f"  -> Found {len(bracket_rows)} bracket rows:")
         
-        # Sum all brackets where the upper bound <= max_retail_shares
+        # Sum all brackets
         retail_total = 0.0
         for row in bracket_rows:
             included = row['lower'] <= max_retail_shares
@@ -365,11 +352,9 @@ class BuybackAgentExtractor:
             'Accept-Language': 'en-US,en;q=0.5',
         }
         result_percentage = None
-        short_name = company_name.split()[0].strip()  # e.g. "Jagsonpal"
+        short_name = company_name.split()[0].strip()
         
-        # -------------------------------------------------------
         # SOURCE 1: screener.in (search-first to resolve slug)
-        # -------------------------------------------------------
         try:
             print(f"\n[SOURCE 1] Trying screener.in search for '{short_name}'...")
             search_url = f"https://www.screener.in/api/company/search/?q={short_name}"
@@ -379,7 +364,6 @@ class BuybackAgentExtractor:
             if resp.status_code == 200:
                 results = resp.json()
                 if results and len(results) > 0:
-                    # First result is usually the best match
                     slug = results[0].get('url', '')
                     company_url = f"https://www.screener.in{slug}"
                     print(f"  -> Resolved to: {company_url}")
@@ -414,9 +398,7 @@ class BuybackAgentExtractor:
         except Exception as e:
             print(f"  -> screener.in FAILED: {e}")
         
-        # -------------------------------------------------------
         # SOURCE 2: Trendlyne (search-first)
-        # -------------------------------------------------------
         if result_percentage is None:
             try:
                 print(f"\n[SOURCE 2] Trying Trendlyne for '{short_name}'...")
@@ -426,7 +408,7 @@ class BuybackAgentExtractor:
                 
                 if resp.status_code == 200:
                     page_text = resp.text.lower()
-                    # Look for the shareholding data on the page
+                    # Look for the shareholding data
                     patterns = [
                         r'individual.*?up\s*to.*?(\d{1,2}\.\d{1,2})\s*%',
                         r'(?:public|retail)\s*(?:shareholding|holding).*?(\d{1,2}\.\d{1,2})\s*%',
@@ -447,9 +429,7 @@ class BuybackAgentExtractor:
             except Exception as e:
                 print(f"  -> Trendlyne FAILED: {e}")
         
-        # -------------------------------------------------------
-        # SOURCE 3: Google search (most reliable search engine)
-        # -------------------------------------------------------
+        # SOURCE 3: Google search
         if result_percentage is None:
             try:
                 print(f"\n[SOURCE 3] Trying Google search for '{company_name}'...")
@@ -493,9 +473,7 @@ class BuybackAgentExtractor:
             except Exception as e:
                 print(f"  -> Google search FAILED: {e}")
         
-        # -------------------------------------------------------
-        # SOURCE 4: choiceindia.com (direct company name support)
-        # -------------------------------------------------------
+        # SOURCE 4: choiceindia.com
         if result_percentage is None:
             try:
                 print(f"\n[SOURCE 4] Trying choiceindia.com for '{short_name}'...")
@@ -516,9 +494,7 @@ class BuybackAgentExtractor:
             except Exception as e:
                 print(f"  -> ChoiceIndia FAILED: {e}")
         
-        # -------------------------------------------------------
         # FINAL RESULT
-        # -------------------------------------------------------
         print(f"\n{'='*60}")
         if result_percentage is not None:
             print(f"Online search found: {result_percentage}%")
