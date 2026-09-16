@@ -27,7 +27,7 @@ if "raw_text_announcement" not in st.session_state:
 if "raw_text_shp" not in st.session_state:
     st.session_state.raw_text_shp = None
 
-# UI Layout
+# User Interface
 col_main, col_sidebar = st.columns([2, 1])
 
 with col_sidebar:
@@ -52,7 +52,6 @@ with col_main:
                     
                 data, raw_text_ann = extractor.parse_announcement(temp_ann_path)
                 
-                # BRUTE-FORCE SANITIZER
                 if isinstance(data, dict) and isinstance(data.get("buyback_size"), dict):
                     data = data["buyback_size"]
                 elif isinstance(data, tuple) and isinstance(data[0], dict):
@@ -64,7 +63,7 @@ with col_main:
                 if os.path.exists(temp_ann_path):
                     os.remove(temp_ann_path)
                     
-                # Process SHP (Optional)
+                # Process SHP
                 if shp_file is not None:
                     temp_shp_path = f"temp_{shp_file.name}"
                     with open(temp_shp_path, "wb") as f:
@@ -77,7 +76,7 @@ with col_main:
                     if os.path.exists(temp_shp_path):
                         os.remove(temp_shp_path)
                 else:
-                    # No SHP PDF uploaded — trigger online fallback
+                    # If no SHP PDF uploaded
                     print(f"No SHP PDF uploaded. Triggering online search for '{company_name}'...")
                     fallback_data = extractor.fetch_shareholding_online(company_name)
                     st.session_state.shp_data = fallback_data
@@ -132,7 +131,7 @@ if st.session_state.extracted_data:
             st.write("What the AI Agent found before processing:")
             st.json(extracted_data)
 
-        # Massive Decision Banner
+        # Decision Banner
         if acceptance_ratio > 8.0:
             st.success(f"✅ SIGNAL: APPLY FOR BUYBACK (Est. Acceptance: {acceptance_ratio:.2f}%)")
         else:
